@@ -3,12 +3,17 @@ import cv2
 import threading
 import time
 from flask import Flask, Response, render_template_string
+from ultralytics import YOLO
 
 # --- Settings ---
 CAPTURE_FPS = 60
 DISPLAY_FPS = 20
 JPEG_QUALITY = 70
 WIDTH, HEIGHT = 1280, 720
+DETECT_CONF = 0.5  # minimum confidence for cat detection
+
+# --- AI ---
+model = YOLO('yolov8n.pt')  # downloads on first run
 
 # Camera device indices: 0 = Arducam (video0), 2 = HD USB Camera (video2)
 CAMERA_DEVICES = [0, 2]
@@ -110,6 +115,22 @@ def capture_frames(cam_id):
         cap.release()
 
 
+def draw_cat_boxes(frame):
+    """Run YOLO and draw bounding boxes for cats. Returns frame (modified in place)."""
+    results = model.predict(frame, conf=DETECT_CONF, verbose=False, stream=True, device='cpu')
+    for r in results:
+        for box in r.boxes:
+            class_id = int(box.cls[0])
+            label = model.names[class_id]
+            if label == 'cat':
+                b = box.xyxy[0].cpu().numpy()
+                conf = float(box.conf[0])
+                cv2.rectangle(frame, (int(b[0]), int(b[1])), (int(b[2]), int(b[3])), (0, 255, 0), 2)
+                cv2.putText(frame, f"CAT {conf:.2f}", (int(b[0]), int(b[1]) - 10),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
+    return frame
+
+
 def generate_mjpeg(cam_id):
     """Yield JPEG frames as an MJPEG multipart stream for camera cam_id."""
     encode_params = [cv2.IMWRITE_JPEG_QUALITY, JPEG_QUALITY]
@@ -121,6 +142,8 @@ def generate_mjpeg(cam_id):
                 time.sleep(interval)
                 continue
             frame = latest_frames[cam_id].copy()
+
+        frame = draw_cat_boxes(frame)
 
         ret, buf = cv2.imencode('.jpg', frame, encode_params)
         if not ret:
