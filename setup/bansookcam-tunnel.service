@@ -1,0 +1,12 @@
+[Unit]
+Description=BansookCam Cloudflare Tunnel
+After=network.target bansookcam.service
+
+[Service]
+ExecStart=/usr/local/bin/cloudflared tunnel run bansookcam
+Restart=on-failure
+RestartSec=5
+User=rachel
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,40 @@
+###############################################
+# BansookCam — MediaMTX configuration
+# FFmpeg reads V4L2 → publishes RTSP locally
+# MediaMTX serves LL-HLS to nginx proxy
+###############################################
+
+# RTSP needed so FFmpeg can publish (bound to localhost only)
+rtspAddress: 127.0.0.1:8554
+
+# Disable unused inbound protocols
+rtmp: no
+srt: no
+webrtc: no
+
+# LL-HLS for browser delivery
+hlsAddress: :8888
+hlsAlwaysRemux: yes
+hlsSegmentCount: 7
+hlsSegmentDuration: 500ms
+hlsPartDuration: 200ms
+hlsSegmentMaxSize: 50M
+
+paths:
+  cam0:
+    # Arducam UC852 needs a moment to initialise; sleep 3 avoids a bad probe
+    runOnInit: >-
+      bash -c 'sleep 3 && ffmpeg -f v4l2 -input_format mjpeg -video_size 1280x720 -framerate 30
+      -i /dev/video0
+      -vf format=yuvj422p
+      -c:v libx264 -preset ultrafast -tune zerolatency -g 30 -keyint_min 30
+      -f rtsp rtsp://127.0.0.1:8554/cam0'
+    runOnInitRestart: yes
+
+  cam1:
+    runOnInit: >-
+      ffmpeg -f v4l2 -input_format mjpeg -video_size 1280x720 -framerate 30
+      -i /dev/video2
+      -c:v libx264 -preset ultrafast -tune zerolatency -g 30 -keyint_min 30
+      -f rtsp rtsp://127.0.0.1:8554/cam1
+    runOnInitRestart: yes

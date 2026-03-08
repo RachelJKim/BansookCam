@@ -1,0 +1,13 @@
+[Unit]
+Description=BansookCam nginx (PWA server)
+After=network.target mediamtx.service
+
+[Service]
+ExecStartPre=/usr/sbin/nginx -t -c /etc/nginx/nginx.conf
+ExecStart=/usr/sbin/nginx -g "daemon off;"
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
